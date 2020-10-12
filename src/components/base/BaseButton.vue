@@ -29,6 +29,7 @@ export default class BaseButton extends Vue {
     cursor: pointer;
     color: #ffffff;
     padding: 15px 32px;
+    margin: 0 10px;
     text-align: center;
     text-decoration: none;
     display: inline-block;

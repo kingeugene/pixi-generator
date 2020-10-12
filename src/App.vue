@@ -22,24 +22,36 @@
                 />
             </div>
         </Sidebar>
-        <BaseButton class="reset" @click="clear">
-            Reset
-        </BaseButton>
-        <BaseButton class="randomize" @click="randomizeFigure">
-            Random
-        </BaseButton>
-        <a
-            :href="downloadSettingsStr"
-            download="settings.json"
-            class="download"
-        >Export</a>
-        <div id="pixi" @click="handleClick" />
+        <div class="option-btn">
+            <BaseButton class="reset" @click="clear">
+                Reset
+            </BaseButton>
+            <BaseButton class="randomize" @click="randomizeFigure">
+                Random
+            </BaseButton>
+            <a
+                :href="downloadSettingsStr"
+                download="settings.json"
+                class="download"
+            >Export</a>
+        </div>
+
+        <div id="pixi" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import * as PIXI from 'pixi.js';
+import {
+    commonSettings,
+    defaultSettingsFigures,
+    figures, filterSettingsFigures,
+    getRandomColor,
+    getRandomPosition,
+    randomInteger,
+    validationSettings, variablesStorage
+} from "@/lib/helpers";
 
 @Component({
     components: {
@@ -48,138 +60,41 @@ import * as PIXI from 'pixi.js';
         BaseInput: () => import(/* webpackChunkName: "components" */ "@/components/base/BaseInput.vue"),
         Sidebar: () => import(/* webpackChunkName: "components" */ "@/components/Sidebar.vue"),
     },
+    data() {
+        return {
+            validationSettings,
+            figures,
+        }
+    }
 })
 export default class App extends Vue {
     app = new PIXI.Application({ resizeTo: window, backgroundColor: 0xE0E0E0 });
-    graphics = new PIXI.Graphics();
-
-    variablesStorage: TypeVariablesStorage = {
-        listFigures: "listFigures",
-        activeFigure: "activeFigure",
-        settingsFigures: "settingsFigures",
-    };
-    figures: TypeFigures = ["circle", "rectangle", "triangle"];
-    selectedValueFigure: TypeSelectedValueFigure = localStorage.getItem(this.variablesStorage.activeFigure) as TypeSelectedValueFigure
-        || this.figures[0];
-    defaultSettingsFigures: Hash<number> = {
-        radius: 50,
-        lineStyle: 1,
-        colorLineStyle: 0xffd900,
-        beginFill: 0xDE3249,
-        width: 50,
-        height: 50,
-        lengthLine: 100,
-    };
+    container = new PIXI.Container();
+    selectedValueFigure: TypeSelectedValueFigure = localStorage.getItem(variablesStorage.activeFigure) as TypeSelectedValueFigure || figures[0];
     settingsFigures: Hash<number> = JSON.parse(
-        localStorage.getItem(this.variablesStorage.settingsFigures)
-        || JSON.stringify(this.defaultSettingsFigures));
-
-    commonSettings: TypeCommonSettings = ["lineStyle", "colorLineStyle", "beginFill"];
-    filterSettingsFigures: TypeFilterSettingsFigures = {
-        circle: ["radius"],
-        rectangle: ["width", "height"],
-        triangle: ["lengthLine"],
-    };
-
-    validationSettings = {
-        radius: {
-            maxValue: 200,
-        },
-        lineStyle: {
-            maxValue: 200,
-        },
-        colorLineStyle: {
-            isHex: true
-        },
-        beginFill: {
-            isHex: true
-        },
-        width: {
-            maxValue: 200,
-        },
-        height: {
-            maxValue: 200,
-        },
-        lengthLine: {
-            maxValue: 200,
-        },
-    };
+        localStorage.getItem(variablesStorage.settingsFigures)
+        || JSON.stringify(defaultSettingsFigures)
+    );
 
     get downloadSettingsStr(): string {
-        return  "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.defaultSettingsFigures))
+        return  "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(variablesStorage.listFigures));
     }
 
     get showSettingsFigures(): Hash<number> {
-        const data: Hash<number>  = {};
+        const data: Hash<number> = {};
 
-        this.commonSettings.forEach(item => {
+        commonSettings.forEach(item => {
             data[item] = this.settingsFigures[item]
         });
 
-        this.filterSettingsFigures[this.selectedValueFigure].forEach(item => {
+        filterSettingsFigures[this.selectedValueFigure].forEach(item => {
             data[item] = this.settingsFigures[item]
         });
 
         return data;
     }
 
-    handleClick(event: MouseEvent): void {
-        const { clientX, clientY } = event;
-
-        switch (this.selectedValueFigure) {
-            case "circle":
-                this.drawCircle(clientX, clientY);
-                break;
-            case "rectangle":
-                this.drawRectangle(clientX, clientY);
-                break;
-            case "triangle":
-                this.drawTriangle(clientX, clientY);
-                break;
-            default:
-                this.drawCircle(clientX, clientY);
-        }
-    }
-
-    getRandomPosition(): { x: number, y: number } {
-        const x = window.innerWidth;
-        const y = window.innerHeight;
-
-        return {
-            x: Math.floor(Math.random() * x),
-            y: Math.floor(Math.random() * y)
-        };
-    }
-
-    randomInteger(max: number, min: number = 0): number {
-        const rand = min + Math.random() * (max + 1 - min);
-
-        return Math.floor(rand);
-    }
-
-    getRandomColor(): number {
-        const letters = "0123456789ABCDEF";
-        let color = "";
-
-        for (var i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 10)];
-        }
-
-        return +color;
-    }
-
-    randomizeFigure(): void {
-        const {x, y} = this.getRandomPosition();
-        const data: Hash<number> = {
-            radius: this.randomInteger(100),
-            lineStyle: this.randomInteger(20),
-            colorLineStyle: this.getRandomColor(),
-            beginFill: this.getRandomColor(),
-            width: this.randomInteger(200),
-            height: this.randomInteger(200),
-            lengthLine: this.randomInteger(200),
-        };
-
+    handlerActiveFigure(x: number, y: number, data?: Hash<number>): void {
         switch (this.selectedValueFigure) {
             case "circle":
                 this.drawCircle(x, y, data);
@@ -195,21 +110,34 @@ export default class App extends Vue {
         }
     }
 
+    randomizeFigure(): void {
+        const { x, y } = getRandomPosition();
+        const data: Hash<number> = {
+            radius: randomInteger(100),
+            lineStyle: randomInteger(10),
+            colorLineStyle: getRandomColor(),
+            beginFill: getRandomColor(),
+            width: randomInteger(200),
+            height: randomInteger(200),
+            lengthLine: randomInteger(200),
+        };
+
+        this.handlerActiveFigure(x, y, data);
+    }
+
     changeFigure(value: TypeSelectedValueFigure): void {
         this.selectedValueFigure = value;
-
-        localStorage.setItem(this.variablesStorage.activeFigure, this.selectedValueFigure);
+        localStorage.setItem(variablesStorage.activeFigure, this.selectedValueFigure);
     }
 
     changeInput(value: number, item: string): void {
         this.settingsFigures[item] = value;
-
-        localStorage.setItem(this.variablesStorage.settingsFigures, JSON.stringify(this.settingsFigures));
+        localStorage.setItem(variablesStorage.settingsFigures, JSON.stringify(this.settingsFigures));
     }
 
     clear(): void {
-        this.graphics.clear();
-        localStorage.removeItem(this.variablesStorage.listFigures);
+        this.container.removeChildren();
+        localStorage.removeItem(variablesStorage.listFigures);
     }
 
     drawCircle(x: number, y: number, data: Hash<number> = this.showSettingsFigures, setStorage: boolean = true): void {
@@ -221,15 +149,21 @@ export default class App extends Vue {
         } = data;
 
         if (setStorage) {
-            this.setLocalStorageData({x, y, data}, "circle");
+            this.setLocalStorageData({ x, y, data }, "circle");
         }
 
-        this.graphics.lineStyle(lineStyle, colorLineStyle);
-        this.graphics.beginFill(beginFill);
-        this.graphics.drawCircle(x, y, radius);
-        this.graphics.endFill();
+        const graphics = new PIXI.Graphics();
 
-        this.app.stage.addChild(this.graphics);
+        graphics.lineStyle(lineStyle, colorLineStyle);
+        graphics.beginFill(beginFill);
+        graphics.drawCircle(x, y, radius);
+        graphics.endFill();
+
+        graphics.interactive = true;
+        graphics.on("mousedown", function() {
+            graphics.destroy(true)
+        });
+        this.container.addChild(graphics);
     }
 
     drawRectangle(x: number, y: number, data: Hash<number> = this.showSettingsFigures, setStorage: boolean = true): void {
@@ -242,15 +176,22 @@ export default class App extends Vue {
         } = data;
 
         if (setStorage) {
-            this.setLocalStorageData({x, y, data},"rectangle");
+            this.setLocalStorageData({ x, y, data },"rectangle");
         }
 
-        this.graphics.lineStyle(lineStyle, colorLineStyle);
-        this.graphics.beginFill(beginFill);
-        this.graphics.drawRect(x, y, width, height);
-        this.graphics.endFill();
+        const graphics = new PIXI.Graphics();
 
-        this.app.stage.addChild(this.graphics);
+        graphics.lineStyle(lineStyle, colorLineStyle);
+        graphics.beginFill(beginFill);
+        graphics.drawRect(x, y, width, height);
+        graphics.endFill();
+
+        graphics.interactive = true;
+        graphics.on("mousedown", function() {
+            graphics.destroy(true)
+        });
+
+        this.container.addChild(graphics);
     }
 
     drawTriangle(x: number, y: number, data: Hash<number> = this.showSettingsFigures, setStorage: boolean = true): void {
@@ -266,35 +207,39 @@ export default class App extends Vue {
         }
 
         const midLength = lengthLine / 2;
+        const graphics = new PIXI.Graphics();
 
-        this.graphics.beginFill(beginFill);
-        this.graphics.lineStyle(lineStyle, colorLineStyle);
-        this.graphics.moveTo(x, y - midLength);
-        this.graphics.lineTo(x - midLength, y - midLength);
-        this.graphics.lineTo(x, y + midLength);
-        this.graphics.lineTo(x + midLength, y - midLength);
-        this.graphics.closePath();
-        this.graphics.endFill();
+        graphics.beginFill(beginFill);
+        graphics.lineStyle(lineStyle, colorLineStyle);
+        graphics.moveTo(x, y - midLength);
+        graphics.lineTo(x - midLength, y - midLength);
+        graphics.lineTo(x, y + midLength);
+        graphics.lineTo(x + midLength, y - midLength);
+        graphics.closePath();
+        graphics.endFill();
 
-        this.app.stage.addChild(this.graphics);
+        graphics.interactive = true;
+        graphics.on("mousedown", function() {
+            graphics.destroy(true)
+        });
+        this.container.addChild(graphics);
     }
 
     setLocalStorageData(data: {x: number; y: number; data: Hash<number>}, property: string): void {
-        const currentData = JSON.parse(localStorage.getItem(this.variablesStorage.listFigures) || "{}");
+        const currentData = JSON.parse(localStorage.getItem(variablesStorage.listFigures) || "{}");
 
         if (!currentData[property]) {
             currentData[property] = [];
         }
 
         currentData[property].push(data);
-
-        localStorage.setItem(this.variablesStorage.listFigures, JSON.stringify(currentData));
+        localStorage.setItem(variablesStorage.listFigures, JSON.stringify(currentData));
     }
 
     mounted() {
-        const currentData = JSON.parse(localStorage.getItem(this.variablesStorage.listFigures) || "{}");
+        const currentData = JSON.parse(localStorage.getItem(variablesStorage.listFigures) || "{}");
 
-        const { circle, rectangle, triangle }: {circle: [] | null; rectangle: [] | null; triangle: [] | null} = currentData;
+        const { circle, rectangle, triangle }: { circle: [] | null; rectangle: [] | null; triangle: [] | null } = currentData;
 
         if (circle) {
             circle.forEach(item => {
@@ -317,7 +262,24 @@ export default class App extends Vue {
             });
         }
 
-        document.getElementById("pixi")!.appendChild(this.app.view);
+        const pixi: HTMLElement = document.getElementById("pixi");
+
+        pixi.appendChild(this.app.view);
+
+        this.container.interactive = true
+        this.container.hitArea = this.app.screen;
+
+        this.container.on("mousedown", (event) => {
+            const { offsetX, offsetY } = event.data.originalEvent;
+            this.handlerActiveFigure(offsetX, offsetY)
+        })
+
+
+        this.app.stage.addChild(this.container);
+    }
+
+    destroyed() {
+        this.app.destroy(true);
     }
 }
 </script>
@@ -343,28 +305,21 @@ export default class App extends Vue {
         }
     }
 
-    .reset {
+    .option-btn {
+        display: flex;
         position: absolute;
         left: 10px;
         top: 10px;
     }
 
-    .randomize {
-        position: absolute;
-        left: 130px;
-        top: 10px;
-    }
-
     .download {
-        position: absolute;
-        left: 280px;
-        top: 10px;
         background-color: #2bbbad;
         border: none;
         outline: none;
         cursor: pointer;
         color: #ffffff;
         padding: 15px 32px;
+        margin: 0 10px;
         text-align: center;
         text-decoration: none;
         display: inline-block;
