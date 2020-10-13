@@ -45,7 +45,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import * as PIXI from 'pixi.js';
 import { InteractionEvent } from "pixi.js";
 import {
-    commonSettings,
+    commonSettings, defaultListPositionFigure,
     defaultSettingsFigures,
     figures, filterSettingsFigures,
     getRandomColor,
@@ -71,11 +71,15 @@ import {
 export default class App extends Vue {
     app = new PIXI.Application({ resizeTo: window, backgroundColor: 0xE0E0E0 });
     container = new PIXI.Container();
+    removeEl = false;
     selectedValueFigure: TypeSelectedValueFigure = localStorage.getItem(variablesStorage.activeFigure) as TypeSelectedValueFigure || figures[0];
     settingsFigures: Hash<number> = JSON.parse(
         localStorage.getItem(variablesStorage.settingsFigures)
         || JSON.stringify(defaultSettingsFigures)
     );
+    listPositionFigure: TypeDefaultListPositionFigure = JSON.parse(
+        localStorage.getItem(variablesStorage.listFigures)
+        || JSON.stringify(defaultListPositionFigure));
 
     get downloadSettingsStr(): string {
         return  "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(variablesStorage.listFigures) || "");
@@ -136,9 +140,30 @@ export default class App extends Vue {
         localStorage.setItem(variablesStorage.settingsFigures, JSON.stringify(this.settingsFigures));
     }
 
+    setLocalStoragePositionEl(): void {
+        localStorage.setItem(variablesStorage.listFigures, JSON.stringify(this.listPositionFigure));
+    }
+
     clear(): void {
         this.container.removeChildren();
         localStorage.removeItem(variablesStorage.listFigures);
+    }
+
+    clearFigure(type: TypeSelectedValueFigure, x: number): void {
+        const list = this.listPositionFigure[type];
+
+        for (let index = 0; index < list.length; index++) {
+            if (list[index].x === x) {
+                list.splice(index, 1);
+                this.setLocalStoragePositionEl();
+                break;
+            }
+        }
+    }
+
+    setFigure(type: TypeSelectedValueFigure, position: {x: number, y: number, data: Hash<number>}): void {
+        this.listPositionFigure[type].push(position)
+        this.setLocalStoragePositionEl()
     }
 
     drawCircle(x: number, y: number, data: Hash<number> = this.showSettingsFigures, setStorage: boolean = true): void {
@@ -150,7 +175,7 @@ export default class App extends Vue {
         } = data;
 
         if (setStorage) {
-            this.setLocalStorageData({ x, y, data }, "circle");
+            this.setFigure("circle", { x, y, data })
         }
 
         const graphics = new PIXI.Graphics();
@@ -161,8 +186,10 @@ export default class App extends Vue {
         graphics.endFill();
 
         graphics.interactive = true;
-        graphics.on("mousedown", function() {
+        graphics.on("mousedown", () => {
+            this.removeEl = true;
             graphics.destroy()
+            this.clearFigure("circle", x);
         });
         this.container.addChild(graphics);
     }
@@ -177,7 +204,7 @@ export default class App extends Vue {
         } = data;
 
         if (setStorage) {
-            this.setLocalStorageData({ x, y, data },"rectangle");
+            this.setFigure("rectangle", { x, y, data })
         }
 
         const graphics = new PIXI.Graphics();
@@ -188,8 +215,10 @@ export default class App extends Vue {
         graphics.endFill();
 
         graphics.interactive = true;
-        graphics.on("mousedown", function() {
+        graphics.on("mousedown", () => {
+            this.removeEl = true;
             graphics.destroy()
+            this.clearFigure("rectangle", x);
         });
 
         this.container.addChild(graphics);
@@ -204,7 +233,7 @@ export default class App extends Vue {
         } = data;
 
         if (setStorage) {
-            this.setLocalStorageData({x, y, data},"triangle");
+            this.setFigure("triangle", { x, y, data })
         }
 
         const midLength = lengthLine / 2;
@@ -220,21 +249,12 @@ export default class App extends Vue {
         graphics.endFill();
 
         graphics.interactive = true;
-        graphics.on("mousedown", function() {
+        graphics.on("mousedown", () => {
+            this.removeEl = true;
             graphics.destroy()
+            this.clearFigure("triangle", x);
         });
         this.container.addChild(graphics);
-    }
-
-    setLocalStorageData(data: {x: number; y: number; data: Hash<number>}, property: string): void {
-        const currentData = JSON.parse(localStorage.getItem(variablesStorage.listFigures) || "{}");
-
-        if (!currentData[property]) {
-            currentData[property] = [];
-        }
-
-        currentData[property].push(data);
-        localStorage.setItem(variablesStorage.listFigures, JSON.stringify(currentData));
     }
 
     mounted() {
@@ -273,8 +293,12 @@ export default class App extends Vue {
         this.container.hitArea = this.app.screen;
 
         this.container.on("mousedown", (event: InteractionEvent) => {
-            const { x, y } = event.data.global;
-            this.handlerActiveFigure(x, y)
+            if (!this.removeEl) {
+                const { x, y } = event.data.global;
+                this.handlerActiveFigure(x, y)
+            } else {
+                this.removeEl = false;
+            }
         })
 
         this.app.stage.addChild(this.container);

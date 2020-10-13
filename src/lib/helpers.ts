@@ -16,6 +16,12 @@ export const defaultSettingsFigures: Hash<number> = {
     lengthLine: 100,
 };
 
+export const defaultListPositionFigure: TypeDefaultListPositionFigure = {
+    circle: [],
+    rectangle: [],
+    triangle: [],
+};
+
 export const validationSettings: Hash<Hash<number| boolean>> = {
     radius: {
         maxValue: 200,
