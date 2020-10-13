@@ -43,6 +43,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import * as PIXI from 'pixi.js';
+import { InteractionEvent } from "pixi.js";
 import {
     commonSettings,
     defaultSettingsFigures,
@@ -77,7 +78,7 @@ export default class App extends Vue {
     );
 
     get downloadSettingsStr(): string {
-        return  "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(variablesStorage.listFigures));
+        return  "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(variablesStorage.listFigures) || "");
     }
 
     get showSettingsFigures(): Hash<number> {
@@ -161,7 +162,7 @@ export default class App extends Vue {
 
         graphics.interactive = true;
         graphics.on("mousedown", function() {
-            graphics.destroy(true)
+            graphics.destroy()
         });
         this.container.addChild(graphics);
     }
@@ -188,7 +189,7 @@ export default class App extends Vue {
 
         graphics.interactive = true;
         graphics.on("mousedown", function() {
-            graphics.destroy(true)
+            graphics.destroy()
         });
 
         this.container.addChild(graphics);
@@ -220,7 +221,7 @@ export default class App extends Vue {
 
         graphics.interactive = true;
         graphics.on("mousedown", function() {
-            graphics.destroy(true)
+            graphics.destroy()
         });
         this.container.addChild(graphics);
     }
@@ -262,18 +263,19 @@ export default class App extends Vue {
             });
         }
 
-        const pixi: HTMLElement = document.getElementById("pixi");
+        const pixi: HTMLElement | null = document.getElementById("pixi");
 
-        pixi.appendChild(this.app.view);
+        if (pixi) {
+            pixi.appendChild(this.app.view);
+        }
 
         this.container.interactive = true
         this.container.hitArea = this.app.screen;
 
-        this.container.on("mousedown", (event) => {
-            const { offsetX, offsetY } = event.data.originalEvent;
-            this.handlerActiveFigure(offsetX, offsetY)
+        this.container.on("mousedown", (event: InteractionEvent) => {
+            const { x, y } = event.data.global;
+            this.handlerActiveFigure(x, y)
         })
-
 
         this.app.stage.addChild(this.container);
     }
